@@ -13,7 +13,7 @@ This repository contains a fully reproducible deep learning earthquake detection
 
 The pipeline uses **AI-PAL** (Zhou et al., 2025) — a self-attention RNN (SAR) phase picker combined with a Pick-and-Associate-Locate (PAL) associator — to automatically detect and locate earthquakes from continuous seismic waveforms.
 
-The entire workflow runs on the **National Data Platform (NDP) JupyterHub** with seismic data and model checkpoint streamed directly from **Pelican OSDF** — no local downloads required.
+The entire workflow runs on the **National Data Platform (NDP) JupyterHub** with seismic data and model checkpoint streamed directly from **Pelican OSDF**.
 
 ---
 
