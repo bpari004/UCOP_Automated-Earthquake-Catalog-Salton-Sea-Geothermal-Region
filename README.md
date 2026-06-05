@@ -1,9 +1,19 @@
-# Automated Earthquake Catalog — Salton Sea Geothermal Region
-**AI-PAL: Deep Learning Phase Picking & Association**
+# UCOP Automated Earthquake Catalog — Salton Sea Geothermal Region
 
-This repository contains the full AI-PAL (Automated Intelligent Phase-picking and Association Locator) pipeline for building an automated earthquake catalog in the Salton Sea Geothermal Region. The pipeline uses a SAR (Self-Attention RNN) deep learning model to detect P and S wave arrivals from continuous seismic data, followed by PAL association to cluster picks into earthquake events.
+[![Python](https://img.shields.io/badge/Python-3.11-blue)](https://www.python.org/)
+[![PyTorch](https://img.shields.io/badge/PyTorch-2.7-orange)](https://pytorch.org/)
+[![Docker](https://img.shields.io/badge/Docker-bpari004%2Fseisai%3Av1.0-blue)](https://hub.docker.com/r/bpari004/seisai)
+[![DOI](https://img.shields.io/badge/DOI-10.1029%2F2025JB031294-green)](https://doi.org/10.1029/2025JB031294)
 
-The demo runs on 8 days of continuous seismic data (August 23–30, 2012), capturing the **2012 Brawley Seismic Swarm** — one of the most significant seismic sequences in Southern California that year.
+---
+
+## Overview
+
+This repository contains a fully reproducible deep learning earthquake detection pipeline applied to the **August 2012 Brawley Seismic Swarm**, Salton Sea Geothermal Region, Southern California.
+
+The pipeline uses **AI-PAL** (Zhou et al., 2025) — a self-attention RNN (SAR) phase picker combined with a Pick-and-Associate-Locate (PAL) associator — to automatically detect and locate earthquakes from continuous seismic waveforms.
+
+The entire workflow runs on the **National Data Platform (NDP) JupyterHub** with seismic data and model checkpoint streamed directly from **Pelican OSDF** — no local downloads required.
 
 ---
 
@@ -11,157 +21,156 @@ The demo runs on 8 days of continuous seismic data (August 23–30, 2012), captu
 
 | Metric | Value |
 |--------|-------|
-| Total picks | 653,782 (full 2012) |
-| Events detected | 9,416 (min_sta=3) |
-| Peak day | Aug 27, 2012 — 11,370 picks |
-| P-wave F1 | 95.89% |
-| S-wave F1 | 95.14% |
-| Both P+S detected | 95.98% of events |
+| Period covered | Aug 23–30, 2012 (8 days) |
+| Stations | 30 (CI, XD, ZY networks) |
+| Total picks | 31,009 |
+| Total events | 4,277 |
+| Peak day | Aug 27 — 8,321 picks (Brawley Swarm peak) |
+| Magnitude range | M−1.0 – M5.4 |
+| Depth range | 2 – 24 km |
+| Wall time (picking) | ~34 min on RTX 2080 Ti |
+| Wall time (association) | ~3 min |
 
 ---
 
 ## Pipeline
 
 ```
-Continuous MiniSEED Waveforms (CI, XD, ZY networks)
-    ↓
-SAR Phase Picker (BiGRU + Multihead Self-Attention)
-    ↓ 
-P & S arrival picks (.pick files)
-    ↓
-PAL Associator (origin time clustering + grid search)
-    ↓
-Earthquake Catalog (catalog.csv)
-    ↓
-Visualization (maps, Gutenberg-Richter, swarm timeline)
+Pelican OSDF (MiniSEED)
+        ↓
+SAR Phase Picking          picker.py + models.py
+        ↓
+picks/YYYY-MM-DD.pick      31,009 P+S picks
+        ↓
+PAL Association            associator.py
+        ↓
+output/catalog.csv         4,277 located events
 ```
 
 ---
 
-## Model
+## Data & Model
 
-**Architecture:** SAR (Self-Attention RNN) — Zhou et al. (2025), JGR Solid Earth  
-**DOI:** [10.1029/2025JB031294](https://doi.org/10.1029/2025JB031294)
+All data and model weights are publicly accessible via Pelican OSDF — no download needed:
+
+| Resource | Pelican Path |
+|----------|-------------|
+| Seismic data (8 days MiniSEED) | `osdf:///ndp/public/ucr_seis/Data_Salton` |
+| SAR model checkpoint | `osdf:///ndp/public/ucr_seis/models/8700_17-319.ckpt` |
+
+**Station networks:**
+- **CI** — Southern California Seismic Network (11 stations, HH?)
+- **XD** — Dense geothermal deployment (18 stations, BH?)
+- **ZY** — COON single station (1 station, EH?)
+
+---
+
+## SAR Model
 
 | Parameter | Value |
 |-----------|-------|
-| Architecture | 2-layer BiGRU + 4-head Multihead Self-Attention |
+| Architecture | BiGRU (2 layers, hidden=128) + Multihead Self-Attention (4 heads) |
 | Window length | 30s at 100 Hz |
 | Frequency band | 2–45 Hz |
 | RNN steps | 296 |
-| Training data | CEED dataset, SCEDC 2008–2012 (56,554 samples) |
-| Best checkpoint | Epoch 17/20, Loss = 0.0201 |
+| P-wave F1 | 95.89% |
+| S-wave F1 | 95.14% |
+| Checkpoint | `8700_17-319.ckpt` (Epoch 17/20, loss=0.0201) |
+
+Model trained on CEED (California Earthquake Event Dataset, 2008–2012, Salton Sea region).
 
 ---
 
-## Data & Model (Pelican OSDF)
+## Running on NDP JupyterHub
 
-All data and the model checkpoint are publicly accessible via Pelican OSDF — **no download required**:
+### 1. Start a server
 
+In NDP JupyterHub, launch a server with:
+
+| Setting | Value |
+|---------|-------|
+| GPU | 1 × NVIDIA A100 80GB (or any available) |
+| Cores | 8 |
+| RAM | 32 GB |
+| /dev/shm | ✅ checked |
+| Custom image | `bpari004/seisai:v1.0` |
+
+### 2. Upload files to persistent storage
+
+Copy all files to:
 ```
-Data  : osdf:///ndp/public/ucr_seis/Data_Salton
-Model : osdf:///ndp/public/ucr_seis/models/8700_17-319.ckpt
+/home/jovyan/work/_User-Persistent-Storage_CephBlock_/salton_sea_demo/
 ```
 
-| Date | Type | Expected Picks |
-|------|------|---------------|
-| Aug 23–25 | Quiet baseline | ~500–1,000/day |
-| Aug 26 | Swarm onset | ~9,000 |
-| Aug 27 | **Swarm peak** | ~11,370 |
-| Aug 28–30 | Swarm decay | ~3,000–6,000/day |
+Place `salton_sea.sta` and `CFM7.0_traces.lonLat` in the `config/` subfolder.
+
+### 3. Run the notebook
+
+Open `salton_sea_demo.ipynb` and run cells in order. All data and the model checkpoint are streamed directly from Pelican — no manual downloads needed.
 
 ---
 
 ## Repository Structure
 
 ```
-├── models.py              # SAR model architecture
-├── picker.py              # SAR phase picker
-├── associator.py          # PAL associator
-├── salton_sea_demo.ipynb  # Full demo notebook (15 cells)
-└── config/
-    └── salton_sea.sta     # 29-station file (CI, XD, ZY networks)
+├── salton_sea_demo.ipynb       # Main demo notebook (15 cells)
+├── models.py                   # SAR model architecture
+├── picker.py                   # SAR phase picker (Pelican-aware)
+├── associator.py               # PAL associator
+├── config/
+│   ├── salton_sea.sta          # 30-station file (lat, lon, ele, gain)
+│   └── CFM7.0_traces.lonLat    # Community Fault Model v7.0 traces
+├── picks/
+│   └── YYYY-MM-DD.pick         # Per-day pick files (31,009 total)
+└── output/
+    ├── catalog.csv             # PAL catalog (ot, lat, lon, dep, mag)
+    ├── catalog_relocated.csv   # Relocated catalog (4,277 events)
+    ├── phase.dat               # Phase file for relocation
+    ├── station_map.png         # Station network map
+    ├── waveform_comparison.png # Quiet vs swarm day waveforms
+    ├── daily_picks.png         # Daily pick count bar chart
+    ├── epicenter_map.png       # Epicenter map + magnitude-time plot
+    └── gutenberg_richter.png   # G-R relation + b-value
 ```
 
 ---
 
-## Running on NDP
+## Output Figures
 
-### 1. Start a JupyterHub server
-- Go to [NDP JupyterHub](https://jupyterhub.nrp-nautilus.io)
-- Use the custom image: `bpari004/seisai:v1.1`
-- Recommended: 1 GPU, 8 cores, 32 GB RAM, amd64, /dev/shm checked
+### Station Network Map
+30 stations across CI, XD, ZY networks with CFM7.0 fault traces and satellite basemap.
 
-### 2. Clone this repository
-```bash
-cd /home/jovyan/work/_User-Persistent-Storage_CephBlock_/
-git clone https://github.com/bpari004/UCOP_Automated-Earthquake-Catalog-Salton-Sea-Geothermal-Region.git
-cd UCOP_Automated-Earthquake-Catalog-Salton-Sea-Geothermal-Region
-mkdir -p config
-mv salton_sea.sta config/
-```
+### Daily Pick Counts
+Clear seismic swarm signature — picks jump from ~1,700/day (quiet) to 8,321 on Aug 27 (swarm peak), a **5× increase**.
 
-### 3. Open and run the notebook
-Open `salton_sea_demo.ipynb` in JupyterLab and run cells sequentially.
+### Epicenter Map
+4,277 events tightly clustered in the Brawley Seismic Zone at the junction of the San Andreas and Imperial fault systems.
 
-- **Cell 3** is the only cell that may need editing (paths are pre-configured for NDP)
-- **Data and model stream directly from Pelican OSDF** — no manual download needed
-- Skip Cell 4 if running locally with data already downloaded
-
----
-
-## Running Locally
-
-```bash
-conda activate your_env
-cd /path/to/repo
-jupyter lab
-```
-
-Update paths in **Cell 3** to point to your local data directory.
+### Gutenberg-Richter Relation
+b-value fit above magnitude of completeness (Mc ≈ 0.5), consistent with regional seismicity.
 
 ---
 
 ## Requirements
 
-```
-obspy>=1.4.0
-torch>=2.0
-numpy>=1.24,<2.0
-scipy>=1.10
-pandas>=2.0
-matplotlib>=3.7
-cartopy
-tqdm
-fsspec
-pelicanfs
-```
+All packages are pre-installed in the Docker image `bpari004/seisai:v1.0`:
 
-Install via:
-```bash
-pip install obspy torch numpy scipy pandas matplotlib cartopy tqdm fsspec pelicanfs
+```
+obspy>=1.4.0        torch>=2.0         zarr>=2.14
+numpy>=1.24         scipy>=1.10        pandas>=2.0
+matplotlib>=3.7     cartopy            h5py>=3.8
+fsspec              pelicanfs          tqdm
 ```
 
 ---
 
-## Station Network
+## Reference
 
-- **Total stations:** 29
-- **CI network:** 11 stations (HH? channels)
-- **XD network:** 17 stations (BH? channels)  
-- **ZY network:** 1 station — COON (EH? channels)
+Zhou, W., et al. (2025). AI-PAL: Automated seismic phase picking and association using self-attention RNN. *Journal of Geophysical Research: Solid Earth*. https://doi.org/10.1029/2025JB031294
 
 ---
 
-## Citation
-
-If you use this pipeline, please cite:
-
-> Zhou, Y., et al. (2025). AI-PAL: Automated Intelligent Phase-picking and Association Locator. *JGR Solid Earth*. doi:10.1029/2025JB031294
-
----
-
-## Contact
+## Author
 
 **Binayak Parida**  
 University of California, Riverside  
