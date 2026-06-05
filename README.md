@@ -9,7 +9,7 @@
 
 ## Overview
 
-This repository contains a fully reproducible deep learning earthquake detection pipeline applied to the **August 2012 Brawley Seismic Swarm**, Salton Sea Geothermal Region, Southern California.
+This repository contains a fully deep learning earthquake detection pipeline applied to the **August 2012 Brawley Seismic Swarm**, Salton Sea Geothermal Region, Southern California.
 
 The pipeline uses **AI-PAL** (Zhou et al., 2025) — a self-attention RNN (SAR) phase picker combined with a Pick-and-Associate-Locate (PAL) associator — to automatically detect and locate earthquakes from continuous seismic waveforms.
 
